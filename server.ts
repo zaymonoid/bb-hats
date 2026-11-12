@@ -1,4 +1,4 @@
-// bb-plugin-project-modes — switch the sidebar between Work and Personal.
+// bb-plugin-hats — switch the sidebar between Work and Personal.
 //
 // Each mode hides the other mode's projects by writing the thread list's
 // `hiddenGroups` preference. A project in neither group shows in both modes.
@@ -122,40 +122,40 @@ export default async function plugin(bb: BbPluginApi) {
 
   const usage = [
     "Usage:",
-    "  bb project-modes status [--json]",
-    "  bb project-modes toggle",
-    "  bb project-modes work | personal",
-    "  bb project-modes assign <project name or id> <work|personal|both>",
+    "  bb hats status [--json]",
+    "  bb hats toggle",
+    "  bb hats work | personal",
+    "  bb hats assign <project name or id> <work|personal|both>",
   ].join("\n");
 
   bb.cli.register({
-    name: "project-modes",
+    name: "hats",
     summary: "Switch the sidebar between Work and Personal project groups",
     commands: [
       {
         name: "status",
         summary: "Show the current mode and each project's group",
-        usage: "bb project-modes status [--json]",
+        usage: "bb hats status [--json]",
       },
       {
         name: "toggle",
         summary: "Switch to the other mode",
-        usage: "bb project-modes toggle",
+        usage: "bb hats toggle",
       },
       {
         name: "work",
         summary: "Show work projects and hide personal ones",
-        usage: "bb project-modes work",
+        usage: "bb hats work",
       },
       {
         name: "personal",
         summary: "Show personal projects and hide work ones",
-        usage: "bb project-modes personal",
+        usage: "bb hats personal",
       },
       {
         name: "assign",
         summary: "Put a project in work, personal, or both modes",
-        usage: "bb project-modes assign <project name or id> <work|personal|both>",
+        usage: "bb hats assign <project name or id> <work|personal|both>",
       },
     ],
     async run(argv) {
@@ -206,7 +206,7 @@ export default async function plugin(bb: BbPluginApi) {
           if (project === null) {
             return {
               exitCode: 1,
-              stderr: `No single project matches "${query}". Run "bb project-modes status" to see names and ids.`,
+              stderr: `No single project matches "${query}". Run "bb hats status" to see names and ids.`,
             };
           }
           const current = await readGroups();

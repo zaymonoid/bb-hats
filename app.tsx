@@ -1,4 +1,4 @@
-// bb-plugin-project-modes — a sidebar footer button that flips the sidebar
+// bb-plugin-hats — a sidebar footer button that flips the sidebar
 // between the Work and Personal project groups. Its icon shows the current
 // mode: a briefcase for Work, a person for Personal.
 import { useEffect, useSyncExternalStore } from "react";
@@ -7,8 +7,8 @@ import { toast } from "sonner";
 
 type Mode = "work" | "personal" | null;
 
-const RPC_BASE = "/api/v1/plugins/project-modes/rpc";
-const ICON_NAME = "project-modes/mode";
+const RPC_BASE = "/api/v1/plugins/hats/rpc";
+const ICON_NAME = "hats/mode";
 const LABELS = { work: "Work projects", personal: "Personal projects" };
 
 // The footer callback and the icon both live outside this plugin's React
