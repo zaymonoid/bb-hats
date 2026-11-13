@@ -1,6 +1,8 @@
 # bb-plugin-hats
 
-Switch the bb sidebar between named sets of projects.
+**We all wear many hats. bb should know which one you've got on.**
+
+Rotate your bb sidebar between groups of projects: Work, Personal, whatever you wear.
 
 > **Your sidebar stays exactly as you arranged it.** Hats never reorders,
 > moves, or changes anything in the sidebar. It only hides projects. A hidden
