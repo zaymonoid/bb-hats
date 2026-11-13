@@ -4,6 +4,8 @@
 
 Rotate your bb sidebar between groups of projects: Work, Personal, whatever you wear.
 
+![Clicking the footer button rotates the sidebar between hats](docs/switching.gif)
+
 > **Your sidebar stays exactly as you arranged it.** Hats never reorders,
 > moves, or changes anything in the sidebar. It only hides projects. A hidden
 > project keeps its position, its threads, and whether it was collapsed, and
@@ -13,6 +15,8 @@ Rotate your bb sidebar between groups of projects: Work, Personal, whatever you 
 - **Settings page:** add, rename, reorder, and delete hats, pick an icon, and
   tick which projects each hat holds. A project can be in several hats.
 - **CLI:** `bb hats status | wear | next | create | rename | icon | delete | add | remove | icons`.
+
+![Adding a hat, naming it, picking an icon, and ticking its projects](docs/configuring.gif)
 
 Wearing a hat hides projects that other hats claim and the worn hat does not.
 Projects in no hat show in every hat. New installs start with empty Work and
