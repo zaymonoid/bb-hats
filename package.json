@@ -8,26 +8,19 @@
   },
   "bb": {
     "name": "Hats",
-    "description": "Switch the sidebar between Work and Personal project groups.",
+    "description": "Switch the sidebar between named sets of projects.",
     "branding": {
-      "icon": "Briefcase"
+      "icon": "./assets/icon.svg"
     },
     "server": "./server.ts",
     "app": "./app.tsx"
   },
   "dependencies": {
+    "lucide-react": "^1.71.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@get-bb/plugin-sdk": "0.6.132",
-    "@types/better-sqlite3": "^7.6.12",
-    "@types/node": "^22.0.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "better-sqlite3": "^12.0.0",
-    "cron-parser": "^5.5.0",
-    "hono": "^4.11.9",
-    "typescript": "^5.7.0",
     "@pierre/diffs": "~1.2.12",
     "@radix-ui/react-alert-dialog": "^1.2.1",
     "@radix-ui/react-context-menu": "^2.4.1",
@@ -39,10 +32,18 @@
     "@radix-ui/react-popover": "^1.3.1",
     "@radix-ui/react-select": "^2.4.1",
     "@radix-ui/react-tooltip": "^1.4.1",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "better-sqlite3": "^12.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cron-parser": "^5.5.0",
+    "hono": "^4.11.9",
     "sonner": "^1.7.4",
     "tailwind-merge": "^3.7.0",
+    "typescript": "^5.7.0",
     "vaul": "^1.1.2"
   }
 }

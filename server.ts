@@ -1,71 +1,98 @@
-// bb-plugin-hats — switch the sidebar between Work and Personal.
+// bb-plugin-hats — switch the sidebar between named sets of projects.
 //
-// Each mode hides the other mode's projects by writing the thread list's
-// `hiddenGroups` preference. A project in neither group shows in both modes.
+// A hat is a name, an icon, and a set of projects; a project can be in any
+// number of hats. Wearing a hat hides every project that some other hat claims
+// but this one does not, by writing the thread list's `hiddenGroups`
+// preference. A project in no hat shows whichever hat you wear.
+import { randomUUID } from "node:crypto";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
+import { HAT_ICONS } from "./icon-names";
 
-const modeSchema = z.enum(["work", "personal"]);
-export type Mode = z.infer<typeof modeSchema>;
-
-const groupsSchema = z.object({
-  work: z.array(z.string()),
-  personal: z.array(z.string()),
+const hatSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  icon: z.enum(HAT_ICONS),
+  projectIds: z.array(z.string()),
 });
-type Groups = z.infer<typeof groupsSchema>;
+export type Hat = z.infer<typeof hatSchema>;
 
-const stateSchema = z.object({
-  mode: modeSchema.nullable(),
-  groups: groupsSchema,
+const storeSchema = z.object({
+  hats: z.array(hatSchema),
+  activeId: z.string().nullable(),
 });
+type Store = z.infer<typeof storeSchema>;
+
+const projectSchema = z.object({ id: z.string(), name: z.string() });
+export type Project = z.infer<typeof projectSchema>;
+
+const stateSchema = storeSchema.extend({ projects: z.array(projectSchema) });
+export type HatsState = z.infer<typeof stateSchema>;
+
+const nameSchema = z.string().trim().min(1).max(40);
 
 export const rpcContract = defineRpcContract({
   state: { input: z.null(), output: stateSchema },
-  toggle: { input: z.null(), output: z.object({ mode: modeSchema }) },
-  set_mode: {
-    input: z.object({ mode: modeSchema }),
-    output: z.object({ mode: modeSchema }),
+  wear: { input: z.object({ id: z.string().nullable() }), output: stateSchema },
+  next: { input: z.null(), output: stateSchema },
+  create: {
+    input: z.object({ name: nameSchema, icon: z.enum(HAT_ICONS) }),
+    output: stateSchema,
+  },
+  update: {
+    input: z.object({
+      id: z.string(),
+      name: nameSchema.optional(),
+      icon: z.enum(HAT_ICONS).optional(),
+    }),
+    output: stateSchema,
+  },
+  remove: { input: z.object({ id: z.string() }), output: stateSchema },
+  move: {
+    input: z.object({ id: z.string(), offset: z.union([z.literal(-1), z.literal(1)]) }),
+    output: stateSchema,
+  },
+  set_member: {
+    input: z.object({ hatId: z.string(), projectId: z.string(), member: z.boolean() }),
+    output: stateSchema,
   },
 });
 
-/** The sidebar as it stood on 2026-11-12; used until the groups are edited. */
-const SEED_GROUPS: Groups = {
-  work: [
-    "proj_pbtxi96w5n", // 📋 Signup
-    "proj_kdpkfeeh2h", // OPS
-    "proj_j6npwgpans", // utilityon-entsuite-commops
-    "proj_qr25reqbqi", // utilityon-property-portal
-    "proj_a84srp4ac5", // UtilityOn
-    "proj_6yggd6pu49", // marketing
-  ],
-  personal: [
-    "proj_scjxdpttk8", // Records and Invoices
-    "proj_qhs2dhik2z", // 🫳 grippify
-    "proj_p6ib6pmhpm", // katha
-    "proj_aqz2shsxaj", // bb-kata-tracker
-    "proj_qiiesspvkc", // kitbag
-    "proj_jfvx7a7uej", // pocket-book
-    "proj_g4m7tp7gvd", // 💍 Wedding
-    "proj_qmc5fqqreh", // iosevka
-  ],
-};
-
+const STORE_KEY = "store";
 const THREAD_LIST = "thread-list";
 const PROJECT_PREFIX = "project:";
-const OTHER: Record<Mode, Mode> = { work: "personal", personal: "work" };
+
+const DEFAULT_STORE: Store = {
+  hats: [
+    { id: "work", name: "Work", icon: "briefcase", projectIds: [] },
+    { id: "personal", name: "Personal", icon: "user", projectIds: [] },
+  ],
+  activeId: null,
+};
+
+class HatsError extends Error {}
 
 export default async function plugin(bb: BbPluginApi) {
-  async function readGroups(): Promise<Groups> {
-    const stored = groupsSchema.safeParse(await bb.storage.kv.get("groups"));
-    return stored.success ? stored.data : SEED_GROUPS;
-  }
-  async function readMode(): Promise<Mode | null> {
-    const stored = modeSchema.safeParse(await bb.storage.kv.get("mode"));
-    return stored.success ? stored.data : null;
+  async function listProjects(): Promise<Project[]> {
+    const projects = await bb.sdk.projects.list({ includePersonal: true });
+    return projects.map(({ id, name }) => ({ id, name }));
   }
 
-  /** Hide the other mode's projects, keeping any non-project hidden groups. */
-  async function applyMode(mode: Mode, groups: Groups): Promise<void> {
+  async function readStore(): Promise<Store> {
+    const stored = storeSchema.safeParse(await bb.storage.kv.get(STORE_KEY));
+    return stored.success ? stored.data : structuredClone(DEFAULT_STORE);
+  }
+
+  /** Hide the projects other hats claim and the worn hat does not. */
+  async function applyStore(store: Store): Promise<void> {
+    const worn = store.hats.find((hat) => hat.id === store.activeId);
+    const hidden = new Set<string>();
+    if (worn !== undefined) {
+      const shown = new Set(worn.projectIds);
+      for (const hat of store.hats) {
+        for (const id of hat.projectIds) if (!shown.has(id)) hidden.add(id);
+      }
+    }
     const { preferences } = await bb.sdk.plugins.callRpc({
       pluginId: THREAD_LIST,
       method: "listPreferences",
@@ -77,153 +104,247 @@ export default async function plugin(bb: BbPluginApi) {
     const kept = preferences.hiddenGroups.filter(
       (key) => !key.startsWith(PROJECT_PREFIX),
     );
-    const hidden = groups[OTHER[mode]].map((id) => `${PROJECT_PREFIX}${id}`);
     await bb.sdk.plugins.callRpc({
       pluginId: THREAD_LIST,
       method: "setPreference",
-      input: { key: "hiddenGroups", value: [...kept, ...hidden] },
+      input: {
+        key: "hiddenGroups",
+        value: [...kept, ...[...hidden].map((id) => `${PROJECT_PREFIX}${id}`)],
+      },
       outputSchema: z.unknown(),
     });
   }
 
-  async function setMode(mode: Mode): Promise<Mode> {
-    await applyMode(mode, await readGroups());
-    await bb.storage.kv.set("mode", mode);
-    bb.realtime.publish("mode-changed", { mode });
-    return mode;
+  /** The store plus the project list, with ids of deleted projects dropped. */
+  async function readState(): Promise<HatsState> {
+    const [store, projects] = await Promise.all([readStore(), listProjects()]);
+    const known = new Set(projects.map((project) => project.id));
+    const hats = store.hats.map((hat) => ({
+      ...hat,
+      projectIds: hat.projectIds.filter((id) => known.has(id)),
+    }));
+    return { ...store, hats, projects };
   }
-  async function toggle(): Promise<Mode> {
-    const current = await readMode();
-    return setMode(current === null ? "work" : OTHER[current]);
+
+  // Serialize writes so quick successive clicks never lose an update.
+  let queue: Promise<unknown> = Promise.resolve();
+  function mutate(change: (store: Store) => void): Promise<HatsState> {
+    const run = queue.then(async () => {
+      const { projects: _projects, ...store } = await readState();
+      change(store);
+      await bb.storage.kv.set(STORE_KEY, store);
+      await applyStore(store);
+      bb.realtime.publish("changed", { activeId: store.activeId });
+      return readState();
+    });
+    queue = run.catch(() => undefined);
+    return run;
   }
+
+  function requireHat(store: Store, id: string): Hat {
+    const hat = store.hats.find((candidate) => candidate.id === id);
+    if (hat === undefined) throw new HatsError(`No hat with id ${id}`);
+    return hat;
+  }
+
+  const wear = (id: string | null) =>
+    mutate((store) => {
+      if (id !== null) requireHat(store, id);
+      store.activeId = id;
+    });
+
+  const next = () =>
+    mutate((store) => {
+      if (store.hats.length === 0) throw new HatsError("There are no hats to wear.");
+      const index = store.hats.findIndex((hat) => hat.id === store.activeId);
+      store.activeId = store.hats[(index + 1) % store.hats.length]?.id ?? null;
+    });
+
+  const create = (name: string, icon: Hat["icon"]) =>
+    mutate((store) => {
+      if (store.hats.some((hat) => hat.name.toLowerCase() === name.toLowerCase())) {
+        throw new HatsError(`A hat named "${name}" already exists.`);
+      }
+      store.hats.push({ id: randomUUID().slice(0, 8), name, icon, projectIds: [] });
+    });
+
+  const update = (id: string, patch: { name?: string; icon?: Hat["icon"] }) =>
+    mutate((store) => {
+      const hat = requireHat(store, id);
+      if (patch.name !== undefined) hat.name = patch.name;
+      if (patch.icon !== undefined) hat.icon = patch.icon;
+    });
+
+  const remove = (id: string) =>
+    mutate((store) => {
+      requireHat(store, id);
+      store.hats = store.hats.filter((hat) => hat.id !== id);
+      if (store.activeId === id) store.activeId = null;
+    });
+
+  const move = (id: string, offset: -1 | 1) =>
+    mutate((store) => {
+      const from = store.hats.findIndex((hat) => hat.id === id);
+      const to = from + offset;
+      if (from === -1 || to < 0 || to >= store.hats.length) return;
+      const [hat] = store.hats.splice(from, 1);
+      if (hat !== undefined) store.hats.splice(to, 0, hat);
+    });
+
+  const setMember = (hatId: string, projectId: string, member: boolean) =>
+    mutate((store) => {
+      const hat = requireHat(store, hatId);
+      const others = hat.projectIds.filter((id) => id !== projectId);
+      hat.projectIds = member ? [...others, projectId] : others;
+    });
 
   bb.rpc.register(rpcContract, {
-    state: async () => ({ mode: await readMode(), groups: await readGroups() }),
-    toggle: async () => ({ mode: await toggle() }),
-    set_mode: async ({ mode }) => ({ mode: await setMode(mode) }),
+    state: () => readState(),
+    wear: ({ id }) => wear(id),
+    next: () => next(),
+    create: ({ name, icon }) => create(name, icon),
+    update: ({ id, name, icon }) => update(id, { name, icon }),
+    remove: ({ id }) => remove(id),
+    move: ({ id, offset }) => move(id, offset),
+    set_member: ({ hatId, projectId, member }) => setMember(hatId, projectId, member),
   });
 
-  type Project = { id: string; name: string };
-  async function listProjects(): Promise<Project[]> {
-    const projects = await bb.sdk.projects.list({ includePersonal: true });
-    return projects.map(({ id, name }) => ({ id, name }));
-  }
-  function findProject(projects: Project[], query: string): Project | null {
+  // ---- CLI ----------------------------------------------------------------
+
+  /** Match by id, exact name, then unique partial name (case-insensitive). */
+  function find<T extends { id: string; name: string }>(
+    items: T[],
+    query: string,
+    kind: string,
+  ): T {
     const needle = query.toLowerCase();
-    const exact = projects.filter(
-      (project) => project.id === query || project.name.toLowerCase() === needle,
+    const exact = items.filter(
+      (item) => item.id === query || item.name.toLowerCase() === needle,
     );
-    if (exact.length === 1) return exact[0] ?? null;
-    const partial = projects.filter((project) =>
-      project.name.toLowerCase().includes(needle),
-    );
-    return partial.length === 1 ? (partial[0] ?? null) : null;
+    const matches =
+      exact.length > 0
+        ? exact
+        : items.filter((item) => item.name.toLowerCase().includes(needle));
+    const [match] = matches;
+    if (matches.length !== 1 || match === undefined) {
+      throw new HatsError(
+        `No single ${kind} matches "${query}". Run "bb hats status" to see names.`,
+      );
+    }
+    return match;
+  }
+
+  function parseIcon(value: string | undefined): Hat["icon"] {
+    const icon = HAT_ICONS.find((candidate) => candidate === value);
+    if (icon === undefined) {
+      throw new HatsError(`Unknown icon "${value}". Icons: ${HAT_ICONS.join(", ")}`);
+    }
+    return icon;
+  }
+
+  function formatState(state: HatsState): string {
+    const lines = state.hats.map((hat) => {
+      const worn = hat.id === state.activeId ? "*" : " ";
+      const names = hat.projectIds
+        .map((id) => state.projects.find((project) => project.id === id)?.name ?? id)
+        .join(", ");
+      return `${worn} ${hat.name} (${hat.icon}): ${names || "no projects"}`;
+    });
+    const claimed = new Set(state.hats.flatMap((hat) => hat.projectIds));
+    const free = state.projects.filter((project) => !claimed.has(project.id));
+    if (free.length > 0) {
+      lines.push(`  In every hat: ${free.map((project) => project.name).join(", ")}`);
+    }
+    if (state.activeId === null) lines.unshift("No hat worn: every project shows.");
+    return lines.join("\n");
   }
 
   const usage = [
     "Usage:",
     "  bb hats status [--json]",
-    "  bb hats toggle",
-    "  bb hats work | personal",
-    "  bb hats assign <project name or id> <work|personal|both>",
+    "  bb hats wear <hat|none>",
+    "  bb hats next",
+    "  bb hats create <name> [icon]",
+    "  bb hats rename <hat> <new name>",
+    "  bb hats icon <hat> <icon>",
+    "  bb hats delete <hat>",
+    "  bb hats add <hat> <project>",
+    "  bb hats remove <hat> <project>",
+    "  bb hats icons",
   ].join("\n");
 
   bb.cli.register({
     name: "hats",
-    summary: "Switch the sidebar between Work and Personal project groups",
+    summary: "Switch the sidebar between named sets of projects",
     commands: [
-      {
-        name: "status",
-        summary: "Show the current mode and each project's group",
-        usage: "bb hats status [--json]",
-      },
-      {
-        name: "toggle",
-        summary: "Switch to the other mode",
-        usage: "bb hats toggle",
-      },
-      {
-        name: "work",
-        summary: "Show work projects and hide personal ones",
-        usage: "bb hats work",
-      },
-      {
-        name: "personal",
-        summary: "Show personal projects and hide work ones",
-        usage: "bb hats personal",
-      },
-      {
-        name: "assign",
-        summary: "Put a project in work, personal, or both modes",
-        usage: "bb hats assign <project name or id> <work|personal|both>",
-      },
+      { name: "status", summary: "Show hats, their projects, and the worn hat", usage: "bb hats status [--json]" },
+      { name: "wear", summary: "Wear a hat, or none to show every project", usage: "bb hats wear <hat|none>" },
+      { name: "next", summary: "Wear the next hat in order", usage: "bb hats next" },
+      { name: "create", summary: "Create a hat", usage: "bb hats create <name> [icon]" },
+      { name: "rename", summary: "Rename a hat", usage: "bb hats rename <hat> <new name>" },
+      { name: "icon", summary: "Change a hat's icon", usage: "bb hats icon <hat> <icon>" },
+      { name: "delete", summary: "Delete a hat", usage: "bb hats delete <hat>" },
+      { name: "add", summary: "Add a project to a hat", usage: "bb hats add <hat> <project>" },
+      { name: "remove", summary: "Remove a project from a hat", usage: "bb hats remove <hat> <project>" },
+      { name: "icons", summary: "List the icons a hat can use", usage: "bb hats icons" },
     ],
     async run(argv) {
       const json = argv.includes("--json");
-      const [command, ...args] = argv.filter((arg) => arg !== "--json");
-      switch (command) {
-        case undefined:
-        case "help":
-        case "--help":
-          return { exitCode: 0, stdout: usage };
-        case "status": {
-          const [mode, groups, projects] = await Promise.all([
-            readMode(),
-            readGroups(),
-            listProjects(),
-          ]);
-          const rows = projects.map((project) => ({
-            ...project,
-            group: groups.work.includes(project.id)
-              ? "work"
-              : groups.personal.includes(project.id)
-                ? "personal"
-                : "both",
-          }));
-          if (json) {
-            return { exitCode: 0, stdout: JSON.stringify({ mode, projects: rows }) };
-          }
-          const lines = rows.map(
-            (row) => `${row.group.padEnd(9)} ${row.id}  ${row.name}`,
-          );
-          return {
-            exitCode: 0,
-            stdout: [`Mode: ${mode ?? "not set"}`, ...lines].join("\n"),
-          };
+      const [command, first, ...rest] = argv.filter((arg) => arg !== "--json");
+      const restText = rest.join(" ").trim();
+      const ok = (state: HatsState) => ({
+        exitCode: 0,
+        stdout: json ? JSON.stringify(state) : formatState(state),
+      });
+      try {
+        switch (command) {
+          case undefined:
+          case "status":
+            return ok(await readState());
+          case "help":
+          case "--help":
+            return { exitCode: 0, stdout: usage };
+          case "icons":
+            return { exitCode: 0, stdout: HAT_ICONS.join("\n") };
+          case "next":
+            return ok(await next());
         }
-        case "toggle":
-          return { exitCode: 0, stdout: `Mode: ${await toggle()}` };
-        case "work":
-        case "personal":
-          return { exitCode: 0, stdout: `Mode: ${await setMode(command)}` };
-        case "assign": {
-          const group = args.at(-1);
-          const query = args.slice(0, -1).join(" ").trim();
-          if (query === "" || !["work", "personal", "both"].includes(group ?? "")) {
-            break;
+        if (first === undefined) return { exitCode: 1, stderr: usage };
+        const state = await readState();
+        switch (command) {
+          case "wear":
+            return ok(
+              await wear(first === "none" ? null : find(state.hats, first, "hat").id),
+            );
+          case "create": {
+            const name = nameSchema.safeParse(first);
+            if (!name.success) break;
+            return ok(await create(name.data, rest[0] === undefined ? "star" : parseIcon(rest[0])));
           }
-          const project = findProject(await listProjects(), query);
-          if (project === null) {
-            return {
-              exitCode: 1,
-              stderr: `No single project matches "${query}". Run "bb hats status" to see names and ids.`,
-            };
-          }
-          const current = await readGroups();
-          const groups: Groups = {
-            work: current.work.filter((id) => id !== project.id),
-            personal: current.personal.filter((id) => id !== project.id),
-          };
-          if (group === "work" || group === "personal") {
-            groups[group].push(project.id);
-          }
-          await bb.storage.kv.set("groups", groups);
-          const mode = await readMode();
-          if (mode !== null) await applyMode(mode, groups);
-          return { exitCode: 0, stdout: `${project.name}: ${group}` };
+          case "delete":
+            return ok(await remove(find(state.hats, first, "hat").id));
         }
+        if (restText === "") return { exitCode: 1, stderr: usage };
+        const hat = find(state.hats, first, "hat");
+        switch (command) {
+          case "rename": {
+            const name = nameSchema.safeParse(restText);
+            if (!name.success) break;
+            return ok(await update(hat.id, { name: name.data }));
+          }
+          case "icon":
+            return ok(await update(hat.id, { icon: parseIcon(restText) }));
+          case "add":
+          case "remove": {
+            const project = find(state.projects, restText, "project");
+            return ok(await setMember(hat.id, project.id, command === "add"));
+          }
+        }
+        return { exitCode: 1, stderr: usage };
+      } catch (cause) {
+        if (cause instanceof HatsError) return { exitCode: 1, stderr: cause.message };
+        throw cause;
       }
-      return { exitCode: 1, stderr: usage };
     },
   });
 }

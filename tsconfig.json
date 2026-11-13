@@ -21,6 +21,7 @@
     "skipLibCheck": false
   },
   "include": [
+    "icon-names.ts",
     "server.ts",
     "app.tsx",
     "components",

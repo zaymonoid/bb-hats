@@ -1,0 +1,36 @@
+// The icons a hat can wear. Shared by server.ts (validation) and app.tsx
+// (rendering); keep this file free of React so the server can import it.
+export const HAT_ICONS = [
+  "briefcase",
+  "user",
+  "house",
+  "heart",
+  "star",
+  "sparkles",
+  "code",
+  "rocket",
+  "coffee",
+  "book-open",
+  "graduation-cap",
+  "dumbbell",
+  "music",
+  "palette",
+  "gamepad",
+  "camera",
+  "plane",
+  "mountain",
+  "leaf",
+  "paw-print",
+  "baby",
+  "wallet",
+  "shopping-bag",
+  "building",
+  "flask",
+  "hammer",
+  "globe",
+  "sun",
+  "moon",
+  "zap",
+] as const;
+
+export type HatIcon = (typeof HAT_ICONS)[number];
