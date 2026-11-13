@@ -4,3 +4,4 @@ node_modules/
 *.log
 .playwright-mcp/
 media-out/
+.kata.local.toml
