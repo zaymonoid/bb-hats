@@ -2,34 +2,44 @@
 
 **We all wear many hats. bb should know which one you've got on.**
 
-Rotate your bb sidebar between groups of projects: Work, Personal, whatever you wear.
+Hats adds workspaces to the bb sidebar. A hat is a group of projects, like
+Work or Personal. Click the button in the sidebar footer to put on the next
+hat, and the projects that belong to your other hats are hidden.
 
 ![Clicking the footer button rotates the sidebar between hats](docs/switching.gif)
 
-> **Your sidebar stays exactly as you arranged it.** Hats never reorders,
-> moves, or changes anything in the sidebar. It only hides projects. A hidden
-> project keeps its position, its threads, and whether it was collapsed, and
-> when you switch back it reappears exactly where it was.
+Hats preserves normal project ordering by hiding and showing projects in the
+bb thread list, preserving ordering.
 
-- **Footer button:** wears the next hat. Its icon is the worn hat's icon.
-- **Settings page:** add, rename, reorder, and delete hats, pick an icon, and
-  tick which projects each hat holds. A project can be in several hats.
-- **CLI:** `bb hats status | wear | next | create | rename | icon | delete | add | remove | icons`.
+## Setting up hats
 
 ![Adding a hat, naming it, picking an icon, and ticking its projects](docs/configuring.gif)
 
-Wearing a hat hides projects that other hats claim and the worn hat does not.
-Projects in no hat show in every hat. New installs start with empty Work and
-Personal hats, so nothing is hidden until you assign projects.
+On the settings page you can add, rename, reorder and delete hats, pick an
+icon for each, and choose which projects are included in each one. A project
+can be in more than one hat. A project that is in no hat is always visible, so
+new projects show up until you file them somewhere.
+
+A new install starts with two empty hats, Work and Personal. Nothing is hidden
+until you put projects in them.
+
+## CLI
+
+Everything on the settings page is also available from the terminal, which
+means agents can switch hats too:
+
+```
+bb hats status | wear | next | create | rename | icon | delete | add | remove | icons
+```
 
 ## How it works
 
-Hats edits a single sidebar setting: bb's list of hidden projects (the
-thread list's `hiddenGroups` preference). Each switch replaces the
-`project:` entries in that list and leaves everything else alone, including
-any sections or machines you hid yourself. bb keeps a hidden project's place
-in the sidebar, which is why switching hats never shuffles your layout.
+Hats edits one sidebar setting: bb's list of hidden projects (the thread
+list's `hiddenGroups` preference). Wearing a hat hides the projects that are
+in other hats but not in that one. Each switch replaces the `project:` entries
+in the list and leaves the rest alone, including any sections or machines you
+hid yourself. bb keeps a hidden project's place in the sidebar, which is why
+switching never shuffles your layout.
 
-The hat order you set on the settings page is the order the footer button
-cycles through. Hats, their projects, and that order live in the plugin's own
-storage and survive reloads and restarts.
+The footer button cycles through hats in the order they have on the settings
+page. Hats are saved in the plugin's own storage and survive restarts.
