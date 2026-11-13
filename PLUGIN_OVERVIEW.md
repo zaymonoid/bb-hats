@@ -1,6 +1,6 @@
 Hats adds workspaces to the bb sidebar. A hat is a group of projects, like
-Work or Personal. Click the button in the sidebar footer to put on the next
-hat, and the projects that belong to your other hats are hidden.
+Work or Personal. Click the button in the sidebar footer to switch to the
+next hat, and the projects that belong to your other hats are hidden.
 
 Hats preserves normal project ordering by hiding and showing projects in the
 bb thread list, preserving ordering.

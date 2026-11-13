@@ -6,16 +6,16 @@ description: Switch the bb sidebar between named sets of projects ("hats"), or c
 # Hats
 
 A hat is a name, an icon, and a set of projects. A project can be in any
-number of hats. Wearing a hat hides every project that another hat claims and
-the worn hat does not; a project in no hat shows whichever hat is worn. The
-sidebar footer button wears the next hat in order, and the plugin's settings
-page edits hats and their projects.
+number of hats. Switching to a hat hides every project that another hat
+claims and the current hat does not; a project in no hat always shows. The
+sidebar footer button switches to the next hat in order, and the plugin's
+settings page edits hats and their projects.
 
 | Command | Effect |
 | --- | --- |
-| `bb hats status [--json]` | Show hats, their projects, and the worn hat (`*`). |
-| `bb hats wear <hat\|none>` | Wear a hat; `none` shows every project. |
-| `bb hats next` | Wear the next hat in order. |
+| `bb hats status [--json]` | Show hats, their projects, and the current hat (`*`). |
+| `bb hats wear <hat\|none>` | Switch to a hat; `none` shows every project. |
+| `bb hats next` | Switch to the next hat in order. |
 | `bb hats create <name> [icon]` | Create a hat (icon defaults to `star`). |
 | `bb hats rename <hat> <new name>` | Rename a hat. |
 | `bb hats icon <hat> <icon>` | Change a hat's icon; `bb hats icons` lists them. |

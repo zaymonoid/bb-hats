@@ -1,9 +1,9 @@
 // bb-plugin-hats — switch the sidebar between named sets of projects.
 //
 // A hat is a name, an icon, and a set of projects; a project can be in any
-// number of hats. Wearing a hat hides every project that some other hat claims
+// number of hats. Switching to a hat hides every project that some other hat claims
 // but this one does not, by writing the thread list's `hiddenGroups`
-// preference. A project in no hat shows whichever hat you wear.
+// preference. A project in no hat always shows.
 import { randomUUID } from "node:crypto";
 import { defineRpcContract, type BbPluginApi } from "@get-bb/plugin-sdk";
 import { z } from "zod";
@@ -155,7 +155,7 @@ export default async function plugin(bb: BbPluginApi) {
 
   const next = () =>
     mutate((store) => {
-      if (store.hats.length === 0) throw new HatsError("There are no hats to wear.");
+      if (store.hats.length === 0) throw new HatsError("There are no hats to switch to.");
       const index = store.hats.findIndex((hat) => hat.id === store.activeId);
       store.activeId = store.hats[(index + 1) % store.hats.length]?.id ?? null;
     });
@@ -255,7 +255,7 @@ export default async function plugin(bb: BbPluginApi) {
     if (free.length > 0) {
       lines.push(`  In every hat: ${free.map((project) => project.name).join(", ")}`);
     }
-    if (state.activeId === null) lines.unshift("No hat worn: every project shows.");
+    if (state.activeId === null) lines.unshift("No hat on: every project shows.");
     return lines.join("\n");
   }
 
@@ -277,9 +277,9 @@ export default async function plugin(bb: BbPluginApi) {
     name: "hats",
     summary: "Switch the sidebar between named sets of projects",
     commands: [
-      { name: "status", summary: "Show hats, their projects, and the worn hat", usage: "bb hats status [--json]" },
-      { name: "wear", summary: "Wear a hat, or none to show every project", usage: "bb hats wear <hat|none>" },
-      { name: "next", summary: "Wear the next hat in order", usage: "bb hats next" },
+      { name: "status", summary: "Show hats, their projects, and the current hat", usage: "bb hats status [--json]" },
+      { name: "wear", summary: "Switch to a hat, or none to show every project", usage: "bb hats wear <hat|none>" },
+      { name: "next", summary: "Switch to the next hat in order", usage: "bb hats next" },
       { name: "create", summary: "Create a hat", usage: "bb hats create <name> [icon]" },
       { name: "rename", summary: "Rename a hat", usage: "bb hats rename <hat> <new name>" },
       { name: "icon", summary: "Change a hat's icon", usage: "bb hats icon <hat> <icon>" },

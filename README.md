@@ -3,8 +3,8 @@
 **We all wear many hats. bb should know which one you've got on.**
 
 Hats adds workspaces to the bb sidebar. A hat is a group of projects, like
-Work or Personal. Click the button in the sidebar footer to put on the next
-hat, and the projects that belong to your other hats are hidden.
+Work or Personal. Click the button in the sidebar footer to switch to the
+next hat, and the projects that belong to your other hats are hidden.
 
 ![Clicking the footer button rotates the sidebar between hats](docs/switching.gif)
 
@@ -35,7 +35,7 @@ bb hats status | wear | next | create | rename | icon | delete | add | remove | 
 ## How it works
 
 Hats edits one sidebar setting: bb's list of hidden projects (the thread
-list's `hiddenGroups` preference). Wearing a hat hides the projects that are
+list's `hiddenGroups` preference). Switching to a hat hides the projects that are
 in other hats but not in that one. Each switch replaces the `project:` entries
 in the list and leaves the rest alone, including any sections or machines you
 hid yourself. bb keeps a hidden project's place in the sidebar, which is why
